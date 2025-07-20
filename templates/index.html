@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chatbot Song Recommendation</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">Chatbot Song Recommender</div>
+      <div id="chat-messages" class="chat-messages">
+        <!-- Welcome message will be added here -->
+      </div>
+      <div class="chat-input">
+        <textarea
+          id="user-input"
+          placeholder="Type your message here..."
+          rows="1"
+          onkeydown="handleKeyPress(event)"
+        ></textarea>
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  </body>
+</html>
