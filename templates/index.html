@@ -3,29 +3,564 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chatbot Song Recommendation</title>
+    <title>AI Assistant & Song Recommender</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Roboto -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Font Awesome for Icons -->
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
     />
+    <style>
+      /* Custom scrollbar for chat messages */
+      .chat-messages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .chat-messages::-webkit-scrollbar-track {
+        background: #f1f5f9; /* Tailwind slate-100 */
+        border-radius: 3px;
+      }
+
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: #94a3b8; /* Tailwind slate-400 */
+        border-radius: 3px;
+      }
+
+      .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: #64748b; /* Tailwind slate-600 */
+      }
+
+      /* Basic animation for messages */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .message {
+        animation: fadeIn 0.3s ease-out;
+      }
+
+      /* Typing indicator dots animation */
+      @keyframes bounce {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+        }
+        30% {
+          transform: translateY(-4px);
+        }
+      }
+      .typing-indicator span {
+        animation: bounce 1.3s linear infinite;
+      }
+      .typing-indicator span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .typing-indicator span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      /* Error message box animation */
+      @keyframes slideIn {
+        from {
+          transform: translateY(-100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateY(-100%);
+          opacity: 0;
+        }
+      }
+
+      .error-message-box {
+        animation: slideIn 0.3s ease-out forwards;
+      }
+      .error-message-box.hide {
+        animation: slideOut 0.3s ease-in forwards;
+      }
+    </style>
   </head>
-  <body>
-    <div class="chat-container">
-      <div class="chat-header">Chatbot Song Recommender</div>
-      <div id="chat-messages" class="chat-messages">
-        <!-- Welcome message will be added here -->
+  <body
+    class="flex h-screen items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-200 font-roboto text-gray-800"
+  >
+    <div
+      class="chat-container relative flex h-[80vh] w-[90%] max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+    >
+      <!-- Error Message Box -->
+      <div
+        id="error-message-box"
+        class="absolute top-0 left-0 right-0 z-10 hidden bg-red-500 text-white p-3 text-center text-sm font-medium"
+      >
+        <!-- Error message will be inserted here -->
       </div>
-      <div class="chat-input">
+
+      <div
+        class="chat-header relative flex items-center justify-between bg-gradient-to-r from-blue-500 to-purple-600 p-5 text-xl font-semibold tracking-wide text-white shadow-md"
+      >
+        <span class="flex-grow text-center">AI Assistant & Song Recommender</span>
+        <button
+          onclick="clearChat()"
+          class="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white bg-opacity-20 p-2 text-sm font-medium text-white hover:bg-opacity-30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200"
+          title="Clear Chat"
+        >
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </div>
+      <div
+        id="current-date-time"
+        class="bg-gray-100 text-gray-600 text-xs text-center py-1.5 border-b border-gray-200"
+      >
+        <!-- Date and Time will be updated here -->
+      </div>
+      <div
+        id="chat-messages"
+        class="chat-messages flex-1 overflow-y-auto p-5 pb-2 bg-slate-50"
+      >
+        <!-- Messages will be appended here by JavaScript -->
+      </div>
+      <div class="chat-input flex items-center p-4 border-t border-gray-200 bg-white">
         <textarea
           id="user-input"
           placeholder="Type your message here..."
           rows="1"
           onkeydown="handleKeyPress(event)"
+          class="flex-1 resize-none overflow-hidden rounded-full border border-gray-300 px-4 py-3 text-base focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200 mr-3"
+          style="min-height: 48px; max-height: 120px;"
         ></textarea>
-        <button onclick="sendMessage()">Send</button>
+        <button
+          onclick="sendMessage()"
+          class="send-button flex-shrink-0 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-white font-medium shadow-lg hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-all duration-200 transform hover:scale-105 active:scale-95"
+        >
+          Send
+        </button>
       </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+      const chatMessages = document.getElementById("chat-messages");
+      const userInput = document.getElementById("user-input");
+      const currentDateTimeDisplay = document.getElementById("current-date-time");
+      const errorMessageBox = document.getElementById("error-message-box");
+      let chatHistory = []; // To store conversation history for context
+
+      // --- API Keys (For client-side demonstration) ---
+      // NOTE: In a production environment, these should be handled securely on a backend server.
+      const GEMINI_API_KEY = "AIzaSyCrJo-67ESjilQSAkDh7iE5Y4uZqJbkhMU"; // Your Gemini API Key
+      const spotifyClientId = "17f780418faa4cb6b35af94f8c7a51d7"; // Your Spotify Client ID
+      const spotifyClientSecret = "ba8f23b47320400b946ca6d8d0502be6"; // Your Spotify Client Secret
+      const openWeatherApiKey = "e11452321f1e40b6dc863a919c1a7fc5"; // Your OpenWeatherMap API Key
+      let spotifyAccessToken = null;
+
+
+      // Add welcome message when the page loads
+      window.onload = () => {
+        addMessage(
+          "Hello! I'm your AI assistant. How can I help you today? I can recommend songs, tell you the weather, or just chat!",
+          "bot-message"
+        );
+        updateDateTime(); // Initial date/time display
+        setInterval(updateDateTime, 60000); // Update every minute
+      };
+
+      // Update current date and time
+      function updateDateTime() {
+        const now = new Date();
+        const options = {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        };
+        currentDateTimeDisplay.textContent = now.toLocaleDateString('en-US', options);
+      }
+
+      // Show temporary error message
+      function showErrorMessage(message) {
+        errorMessageBox.textContent = message;
+        errorMessageBox.classList.remove('hidden');
+        errorMessageBox.classList.remove('hide'); // Ensure it's not in hiding state
+        setTimeout(() => {
+          errorMessageBox.classList.add('hide'); // Start hide animation
+          errorMessageBox.addEventListener('animationend', () => {
+            errorMessageBox.classList.add('hidden'); // Hide after animation
+          }, { once: true });
+        }, 5000); // Hide after 5 seconds
+      }
+
+      // Clear all messages from the chat
+      function clearChat() {
+        chatMessages.innerHTML = "";
+        chatHistory = []; // Clear chat history
+        addMessage(
+          "Chat cleared! How can I help you now?",
+          "bot-message"
+        );
+      }
+
+      // Adjust textarea height dynamically
+      userInput.addEventListener('input', () => {
+          userInput.style.height = 'auto';
+          userInput.style.height = userInput.scrollHeight + 'px';
+      });
+
+
+      // Fetch response for general questions using Gemini API (direct client-side call)
+      async function fetchGeminiResponse(query) {
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+        // Prepare chat history for Gemini API
+        // Add a system instruction or persona for Gemini
+        let geminiChatHistory = [{
+            "role": "user",
+            "parts": [{"text": "You are a friendly, helpful, and empathetic AI assistant. Respond logically and emotionally like a human, providing concise and relevant information. If asked about music, suggest using the 'recommend' command. If asked about weather, suggest 'weather in [city]'."}]
+        }];
+        // Append existing chat history
+        for (const msg of chatHistory) {
+            geminiChatHistory.push({ role: msg.sender, parts: [{ text: msg.text }] });
+        }
+        // Add current user message
+        geminiChatHistory.push({ role: "user", parts: [{ text: query }] });
+
+
+        const payload = {
+            contents: geminiChatHistory,
+            generationConfig: {
+                temperature: 0.7,
+                topP: 0.95,
+                topK: 40,
+            }
+        };
+
+        try {
+            const response = await fetch(GEMINI_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                addMessage(text, "bot-message");
+            } else {
+                addMessage("Sorry, I couldn't generate a response from Gemini.", "bot-message");
+            }
+        } catch (error) {
+            console.error("Error fetching Gemini response:", error);
+            showErrorMessage("Sorry, I couldn't process your question using Gemini. Please try again later.");
+        } finally {
+            removeTypingIndicator();
+        }
+      }
+
+      // Handle Enter key press
+      function handleKeyPress(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      }
+
+      // Send message
+      function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        // Display user message
+        addMessage(message, "user-message");
+        chatHistory.push({ sender: "user", text: message }); // Add to history
+
+        // Clear input and adjust height
+        userInput.value = "";
+        userInput.style.height = 'auto'; // Reset height after sending
+
+        // Show typing indicator
+        showTypingIndicator();
+
+        // Process and Respond
+        processAndRespond(message);
+      }
+
+      // Add message to the chat
+      function addMessage(text, className) {
+        const messageWrapper = document.createElement("div");
+        messageWrapper.className = `flex items-start my-2 ${
+          className === "user-message" ? "justify-end" : "justify-start"
+        }`;
+
+        // Avatar/Icon
+        const avatar = document.createElement("div");
+        avatar.className = `flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+          className === "user-message" ? "bg-blue-500 order-2 ml-2" : "bg-purple-500 order-1 mr-2"
+        }`;
+        avatar.innerHTML =
+          className === "user-message"
+            ? '<i class="fas fa-user"></i>'
+            : '<i class="fas fa-robot"></i>';
+
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message p-3 rounded-xl max-w-[80%] shadow-sm ${
+          className === "user-message"
+            ? "bg-blue-500 text-white rounded-br-md"
+            : "bg-gray-200 text-gray-800 rounded-bl-md"
+        }`;
+
+        // Use innerHTML for bot messages to support links and line breaks
+        messageDiv.innerHTML = text.replace(/\n/g, '<br>');
+
+        if (className === "user-message") {
+          messageWrapper.appendChild(messageDiv);
+          messageWrapper.appendChild(avatar);
+        } else {
+          messageWrapper.appendChild(avatar);
+          messageWrapper.appendChild(messageDiv);
+        }
+
+        chatMessages.appendChild(messageWrapper);
+        scrollToBottom();
+
+        // Add bot message to history after it's displayed
+        if (className === "bot-message") {
+            chatHistory.push({ sender: "model", text: text });
+        }
+      }
+
+      // Show typing indicator
+      function showTypingIndicator() {
+        const indicatorWrapper = document.createElement("div");
+        indicatorWrapper.className = "flex items-start my-2 justify-start"; // Align with bot messages
+
+        const avatar = document.createElement("div");
+        avatar.className = "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold bg-purple-500 order-1 mr-2";
+        avatar.innerHTML = '<i class="fas fa-robot"></i>';
+
+        const indicator = document.createElement("div");
+        indicator.className =
+          "typing-indicator flex items-center p-3 rounded-xl bg-gray-200 w-fit";
+        indicator.innerHTML = `
+          <span class="h-2 w-2 bg-gray-400 rounded-full mx-0.5"></span>
+          <span class="h-2 w-2 bg-gray-400 rounded-full mx-0.5"></span>
+          <span class="h-2 w-2 bg-gray-400 rounded-full mx-0.5"></span>
+        `;
+        indicator.id = "typing-indicator";
+
+        indicatorWrapper.appendChild(avatar);
+        indicatorWrapper.appendChild(indicator);
+        chatMessages.appendChild(indicatorWrapper);
+        scrollToBottom();
+      }
+
+      // Remove typing indicator
+      function removeTypingIndicator() {
+        const indicator = document.getElementById("typing-indicator");
+        if (indicator) {
+          indicator.parentNode.remove(); // Remove the wrapper div
+        }
+      }
+
+      // Scroll chat to the bottom
+      function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // Fetch Spotify Access Token (client-side)
+      async function fetchSpotifyAccessToken() {
+        const url = "https://accounts.spotify.com/api/token";
+        const body = "grant_type=client_credentials";
+        const headers = {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${btoa(
+            spotifyClientId + ":" + spotifyClientSecret
+          )}`,
+        };
+
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            headers,
+            body,
+          });
+          const data = await response.json();
+          spotifyAccessToken = data.access_token;
+        } catch (error) {
+          console.error("Error fetching Spotify access token:", error);
+          showErrorMessage(
+            "Sorry, I couldn't connect to Spotify to get an access token. Please try again later."
+          );
+        }
+      }
+
+      // Fetch Song Recommendations from Spotify (direct client-side call)
+      async function fetchSpotifyRecommendations(query) {
+        if (!spotifyAccessToken) {
+          await fetchSpotifyAccessToken();
+        }
+
+        if (!spotifyAccessToken) { // Check again if token was successfully fetched
+            removeTypingIndicator();
+            return;
+        }
+
+        const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+          query
+        )}&type=track&limit=10`;
+
+        const headers = {
+          Authorization: `Bearer ${spotifyAccessToken}`,
+        };
+
+        try {
+          const response = await fetch(searchUrl, { headers });
+          if (!response.ok) {
+            // If token expired or invalid, try to re-fetch and retry
+            if (response.status === 401) {
+                console.warn("Spotify token expired, attempting to re-fetch...");
+                spotifyAccessToken = null; // Invalidate current token
+                await fetchSpotifyAccessToken(); // Try to get a new one
+                if (spotifyAccessToken) { // If successful, retry the original request
+                    return fetchSpotifyRecommendations(query);
+                }
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          removeTypingIndicator(); // Remove indicator before displaying results
+
+          const tracks = data.tracks.items;
+
+          if (tracks && tracks.length > 0) {
+            let recommendationsHtml = "Here are some song recommendations:<br>";
+            tracks.forEach((track, index) => {
+              recommendationsHtml += `${index + 1}. <a href="${
+                track.external_urls.spotify
+              }" target="_blank" class="text-blue-600 hover:underline">${
+                track.name
+              } by ${track.artists[0].name}</a><br>`;
+            });
+            addMessage(recommendationsHtml, "bot-message");
+          } else {
+            addMessage("No songs found for your query. Please try a different one.", "bot-message");
+          }
+        } catch (error) {
+          console.error("Error fetching song recommendations:", error);
+          removeTypingIndicator();
+          showErrorMessage(
+            "Sorry, I couldn't fetch song recommendations. Please try again later."
+          );
+        }
+      }
+
+      // Fetch Weather Information (direct client-side call)
+      async function fetchWeather(city) {
+        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${openWeatherApiKey}`;
+
+        try {
+          const response = await fetch(apiUrl);
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          removeTypingIndicator(); // Remove indicator before displaying results
+
+          const weather = `The current weather in ${data.name} is ${data.weather[0].description} with a temperature of ${data.main.temp}°C and humidity of ${data.main.humidity}%.`;
+          addMessage(weather, "bot-message");
+        } catch (error) {
+          console.error("Error fetching weather:", error);
+          removeTypingIndicator();
+          showErrorMessage(
+            `Sorry, I couldn't fetch the weather for the specified location. ${error.message}. Please try again.`
+          );
+        }
+      }
+
+      // Process and Respond - Main logic for determining bot's action
+      async function processAndRespond(userMessage) {
+        const message = userMessage.toLowerCase().trim();
+
+        if (message.includes("weather in")) {
+          const cityMatch = userMessage.match(/weather in (.+)/i);
+          const city = cityMatch ? cityMatch[1].trim() : null;
+          if (city) {
+            await fetchWeather(city);
+          } else {
+            addMessage("Please specify a city, e.g., 'weather in London'.", "bot-message");
+            removeTypingIndicator();
+          }
+        } else if (message.includes("recommend") || message.includes("song")) {
+          // Extract general recommendation query
+          let query = userMessage.replace(/recommend|song|music|playlist/gi, '').trim();
+
+          // Check for mood-based keywords
+          let moodQuery = "";
+          if (message.includes("happy")) {
+            moodQuery = "happy pop";
+          } else if (message.includes("sad")) {
+            moodQuery = "sad acoustic";
+          } else if (message.includes("party")) {
+            moodQuery = "party dance";
+          } else if (message.includes("chill") || message.includes("relaxed")) {
+            moodQuery = "chill ambient";
+          }
+
+          // If a mood is detected, prioritize it, otherwise use the general query
+          const finalQuery = moodQuery ? `${moodQuery} ${query}`.trim() : query;
+
+          if (finalQuery) {
+            await fetchSpotifyRecommendations(finalQuery);
+          } else {
+            addMessage("Please specify what kind of songs you'd like recommendations for.", "bot-message");
+            removeTypingIndicator();
+          }
+        } else if (message.includes("help")) {
+          addMessage(
+            "I can help with: <br>- **Weather information**: Try 'weather in [city]'<br>- **Song recommendations**: Try 'recommend happy songs' or 'recommend rock music'<br>- **General questions**: Just ask me anything!",
+            "bot-message"
+          );
+          removeTypingIndicator();
+        } else if (message.includes("bye") || message.includes("goodbye")) {
+          addMessage("Goodbye! Have a great day!", "bot-message");
+          removeTypingIndicator();
+        } else {
+          // Fallback to Gemini for general questions
+          await fetchGeminiResponse(userMessage);
+        }
+      }
+    </script>
   </body>
 </html>
